@@ -3,14 +3,29 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { protos } from "@google-cloud/documentai";
-import { useState } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { LoaderCircle } from "lucide-react";
+import React, { useState } from "react";
 
 export default function UploadForm() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [result, setResult] = useState<{
-    text: string;
-    data: protos.google.cloud.documentai.v1.IDocument;
+    data: {
+      page: number | null;
+      companyName: string | null;
+      items: {
+        product: string | null;
+        color: string | null;
+        quantity: number | null;
+      }[];
+    }[];
   } | null>(null);
 
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -24,16 +39,25 @@ export default function UploadForm() {
     });
     if (!res.ok) {
       setIsLoading(false);
+      return;
     }
     const json = await res.json();
-    setResult(json);
-    setIsLoading(false);
+    const data = json.data;
+    console.log(data);
+    // const cleaned = data.replace(/```json|```/g, "").trim();
+    // console.log(cleaned);
+    try {
+      setResult({ data: JSON.parse(data || []) });
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setIsLoading(false);
+      return;
+    }
   };
-  console.log(result?.text.split("\n"));
-  console.log(result?.data);
 
   return (
-    <Card className="w-full max-w-2xl mt-15">
+    <Card className="w-full max-w-2xl my-15">
       <CardHeader>
         <CardTitle>OCR</CardTitle>
       </CardHeader>
@@ -45,10 +69,53 @@ export default function UploadForm() {
             accept="application/pdf, images/*"
             className="cursor-pointer"
           />
-          <Button type="submit" className="cursor-pointer">
-            {isLoading ? "loading..." : "アップロード"}
+          <Button type="submit" className="cursor-pointer w-24">
+            {isLoading ? (
+              <LoaderCircle className="animate-spin" />
+            ) : (
+              "アップロード"
+            )}
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            className="cursor-pointer"
+            onClick={() => {
+              setResult(null);
+            }}
+          >
+            リセット
           </Button>
         </form>
+        {result && (
+          <Table className="mt-6">
+            <TableHeader>
+              <TableRow>
+                <TableHead>PAGE</TableHead>
+                <TableHead>会社名</TableHead>
+                <TableHead>色</TableHead>
+                <TableHead>数量</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {result.data?.map((data, index: number) => (
+                <React.Fragment key={index}>
+                  {data.items
+                    .filter((item) => item.quantity)
+                    .map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{data.page}</TableCell>
+                        <TableCell>{data.companyName}</TableCell>
+                        <TableCell>{item.product}</TableCell>
+                        <TableCell>{item.color}</TableCell>
+                        <TableCell>{item.quantity}</TableCell>
+                      </TableRow>
+                    ))}
+                </React.Fragment>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
     </Card>
   );
